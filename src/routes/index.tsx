@@ -53,6 +53,48 @@ const entityGroups = [
   { label: "Histórico cirúrgico citado", tone: "history", items: ["Colecistectomia (2025)"] },
 ] as const;
 
+const previousConsultations = [
+  {
+    date: "18/08/2026",
+    doctor: "Dr. Marcos Silva",
+    specialty: "Clínica Médica",
+    unit: "Clínica Vitae · Unidade Centro",
+    summary: "Retorno para acompanhamento pressórico. Paciente relatou cansaço ao final do dia.",
+    observations: [
+      "Pressão aferida em consultório: 145 × 95 mmHg",
+      "Orientação sobre redução de sódio registrada em texto livre",
+      "Solicitado perfil lipídico e glicemia de jejum",
+    ],
+    documents: ["Evolução assinada (PDF)", "Pedido de exames"],
+  },
+  {
+    date: "12/07/2026",
+    doctor: "Dra. Helena Prado",
+    specialty: "Pronto Atendimento",
+    unit: "Hospital São Rafael",
+    summary: "Atendimento por cefaleia e mal-estar. Registro de aferição pressórica alterada.",
+    observations: [
+      "Pressão aferida na admissão: 150 × 90 mmHg",
+      "Relato de uso ocasional de analgésico sem orientação",
+      "Alta com orientação de seguimento ambulatorial",
+    ],
+    documents: ["Ficha de atendimento digitalizada", "Adendo de correção de horário"],
+  },
+  {
+    date: "03/03/2025",
+    doctor: "Dr. Ricardo Alves",
+    specialty: "Cirurgia Geral",
+    unit: "Hospital São Rafael",
+    summary: "Consulta de revisão pós-operatória de colecistectomia realizada em 2025.",
+    observations: [
+      "Cicatrização descrita como adequada no registro original",
+      "Sem queixas digestivas anotadas na evolução",
+      "Alta do acompanhamento cirúrgico",
+    ],
+    documents: ["Descrição cirúrgica", "Relatório de alta"],
+  },
+] as const;
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
