@@ -386,3 +386,55 @@ function TimelineEntry({ date, title, detail, active, locked, children }: { date
     </div>
   );
 }
+function PreviousConsultation({ consult }: { consult: (typeof previousConsultations)[number] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="p-5">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-heading">{consult.doctor}</p>
+          <p className="mt-0.5 text-[11px] font-semibold uppercase text-muted-foreground">
+            {consult.specialty} · {consult.unit}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="shadow-none">{consult.date}</Badge>
+          <span className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground">
+            <LockKeyhole size={11} /> Assinado
+          </span>
+        </div>
+      </div>
+      <p className="mt-2 text-sm leading-6 text-foreground">{consult.summary}</p>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="mt-2 -ml-2 text-muted-foreground hover:text-primary"
+      >
+        <FileSearch /> {open ? "Ocultar registro original" : "Ver observações registradas"}
+        <ChevronRight className={cn("transition-transform", open && "rotate-90")} />
+      </Button>
+      {open && (
+        <div className="mt-2 rounded-md border border-border bg-surface-subtle p-4">
+          <p className="text-[10px] font-bold uppercase text-muted-foreground">Anotações extraídas do registro</p>
+          <ul className="mt-2 space-y-1.5">
+            {consult.observations.map((obs) => (
+              <li key={obs} className="flex gap-2 text-xs leading-5 text-foreground">
+                <Check size={13} className="mt-0.5 shrink-0 text-primary" />
+                {obs}
+              </li>
+            ))}
+          </ul>
+          <div className="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
+            {consult.documents.map((doc) => (
+              <span key={doc} className="flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                <FileText size={12} className="text-primary" /> {doc}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
