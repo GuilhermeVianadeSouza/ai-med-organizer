@@ -355,6 +355,17 @@ function ClinicalDashboard() {
               </div>
             </CardContent>
           </Card>
+
+          <Card className="border-border shadow-clinical">
+            <CardHeader className="border-b border-border p-5">
+              <SectionTitle icon={Stethoscope} eyebrow="Atendimentos anteriores" title="Consultas com outros profissionais" />
+            </CardHeader>
+            <CardContent className="divide-y divide-border p-0">
+              {previousConsultations.map((consult) => (
+                <PreviousConsultation key={consult.date} consult={consult} />
+              ))}
+            </CardContent>
+          </Card>
         </section>
       </div>
     </main>
