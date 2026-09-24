@@ -677,7 +677,7 @@ function ClinicalDashboard() {
   );
 }
 
-function TimelineEntry({ date, title, detail, active, locked, children }: { date: string; title: string; detail: string; active?: boolean; locked?: boolean; children?: React.ReactNode }) {
+function TimelineEntry({ date, title, detail, active, locked, children }: { date: string; title: string; detail: string; active?: boolean | undefined; locked?: boolean | undefined; children?: React.ReactNode }) {
   return (
     <div className="relative pb-6 last:pb-0">
       <span className={cn("absolute -left-[31px] top-1 flex size-3 rounded-full border-2 border-card", active ? "bg-primary ring-4 ring-primary-soft" : "bg-timeline")} />
