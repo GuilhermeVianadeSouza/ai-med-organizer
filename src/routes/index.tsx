@@ -6,6 +6,7 @@ import {
   Check,
   ChevronRight,
   Clock3,
+  Eye,
   FileSearch,
   FileText,
   HeartPulse,
@@ -18,7 +19,6 @@ import {
   Sparkles,
   Stethoscope,
   TrendingUp,
-  UserRound,
 } from "lucide-react";
 import {
   CartesianGrid,
@@ -37,63 +37,289 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
-const rawReport =
-  "Doutor, tô com uma dor de cabeça forte desde terça-feira na nuca, tá latejando. Tomei Neosaldina por conta própria ontem à noite e não aliviou nada. Minha pressão aferida na farmácia hoje de manhã deu 160 por 100. Aliás, ano passado retirei a vesícula.";
+// ---------- Tipos ----------
 
-const pressureData = [
-  { date: "12 jul", sistolica: 150, diastolica: 90 },
-  { date: "18 ago", sistolica: 145, diastolica: 95 },
-  { date: "22 set", sistolica: 160, diastolica: 100 },
-];
+type TimelineItem = {
+  date: string;
+  title: string;
+  detail: string;
+  active?: boolean;
+  locked?: boolean;
+  addendum?: { date: string; text: string };
+};
 
-const entityGroups = [
-  { label: "Sintomas", tone: "symptom", items: ["Dor de cabeça na nuca", "Latejamento"] },
-  { label: "Tempo de evolução", tone: "time", items: ["Há 3 dias"] },
-  { label: "Medicamentos citados", tone: "medication", items: ["Neosaldina (sem eficácia)"] },
-  { label: "Histórico cirúrgico citado", tone: "history", items: ["Colecistectomia (2025)"] },
-] as const;
+type ExamRow = { metric: string; values: string[]; status?: "high" | "attention" };
 
-const previousConsultations = [
-  {
-    date: "18/08/2026",
-    doctor: "Dr. Marcos Silva",
-    specialty: "Clínica Médica",
-    unit: "Clínica Vitae · Unidade Centro",
-    summary: "Retorno para acompanhamento pressórico. Paciente relatou cansaço ao final do dia.",
-    observations: [
-      "Pressão aferida em consultório: 145 × 95 mmHg",
-      "Orientação sobre redução de sódio registrada em texto livre",
-      "Solicitado perfil lipídico e glicemia de jejum",
-    ],
-    documents: ["Evolução assinada (PDF)", "Pedido de exames"],
+type ChartSeries = { key: string; name: string; colorVar: string };
+
+type Consultation = {
+  date: string;
+  doctor: string;
+  specialty: string;
+  unit: string;
+  summary: string;
+  observations: string[];
+  documents: string[];
+};
+
+type Scenario = {
+  id: string;
+  label: string;
+  icon: typeof HeartPulse;
+  patient: { name: string; initials: string; age: string; cpf: string; record: string };
+  badges: { tone: "alert" | "attention"; icon: typeof Activity; text: string }[];
+  doctorBadge: string;
+  statusLine: string;
+  statusTime: string;
+  rawReport: string;
+  entityGroups: readonly { label: string; tone: string; items: string[] }[];
+  synthesis: string;
+  chart: {
+    title: string;
+    eyebrow: string;
+    lastLabel: string;
+    lastValue: string;
+    lastUnit: string;
+    badge: string;
+    trend: string;
+    ariaLabel: string;
+    yDomain: [number, number];
+    series: ChartSeries[];
+    data: Record<string, string | number>[];
+  };
+  exams: { columns: string[]; rows: ExamRow[] };
+  timeline: TimelineItem[];
+  consultations: Consultation[];
+};
+
+// ---------- Cenário 1: Clínica Médica ----------
+
+const clinicoScenario: Scenario = {
+  id: "clinico",
+  label: "Clínica Médica",
+  icon: HeartPulse,
+  patient: {
+    name: "Carlos Eduardo Souza",
+    initials: "CS",
+    age: "48 anos",
+    cpf: "***.456.789-**",
+    record: "#P-029841",
   },
-  {
-    date: "12/07/2026",
-    doctor: "Dra. Helena Prado",
-    specialty: "Pronto Atendimento",
-    unit: "Hospital São Rafael",
-    summary: "Atendimento por cefaleia e mal-estar. Registro de aferição pressórica alterada.",
-    observations: [
-      "Pressão aferida na admissão: 150 × 90 mmHg",
-      "Relato de uso ocasional de analgésico sem orientação",
-      "Alta com orientação de seguimento ambulatorial",
+  badges: [
+    { tone: "alert", icon: AlertTriangle, text: "Alergia severa a penicilina" },
+    { tone: "attention", icon: Activity, text: "Hipertensão em investigação" },
+  ],
+  doctorBadge: "Dr. Marcos Silva · CRM/SP 198.432",
+  statusLine: "Atendimento em andamento",
+  statusTime: "Atualização segura · Hoje, 09:42",
+  rawReport:
+    "Doutor, tô com uma dor de cabeça forte desde terça-feira na nuca, tá latejando. Tomei Neosaldina por conta própria ontem à noite e não aliviou nada. Minha pressão aferida na farmácia hoje de manhã deu 160 por 100. Aliás, ano passado retirei a vesícula.",
+  entityGroups: [
+    { label: "Sintomas", tone: "symptom", items: ["Dor de cabeça na nuca", "Latejamento"] },
+    { label: "Tempo de evolução", tone: "time", items: ["Há 3 dias"] },
+    { label: "Medicamentos citados", tone: "medication", items: ["Neosaldina (sem eficácia)"] },
+    { label: "Histórico cirúrgico citado", tone: "history", items: ["Colecistectomia (2025)"] },
+  ] as const,
+  synthesis:
+    "Paciente relata cefaleia occipital intensa e pulsátil, com início há três dias. Refere uso de Neosaldina na noite anterior, sem alívio. Pressão arterial aferida em farmácia nesta manhã: 160/100 mmHg. Antecedente cirúrgico informado: colecistectomia em 2025.",
+  chart: {
+    title: "Tendência da pressão arterial",
+    eyebrow: "Série temporal",
+    lastLabel: "Última aferição",
+    lastValue: "160/100",
+    lastUnit: "mmHg",
+    badge: "160 / 100",
+    trend: "Tendência ascendente",
+    ariaLabel: "Gráfico de pressão arterial nas últimas três consultas",
+    yDomain: [80, 170],
+    series: [
+      { key: "sistolica", name: "Sistólica", colorVar: "var(--chart-systolic)" },
+      { key: "diastolica", name: "Diastólica", colorVar: "var(--chart-diastolic)" },
     ],
-    documents: ["Ficha de atendimento digitalizada", "Adendo de correção de horário"],
-  },
-  {
-    date: "03/03/2025",
-    doctor: "Dr. Ricardo Alves",
-    specialty: "Cirurgia Geral",
-    unit: "Hospital São Rafael",
-    summary: "Consulta de revisão pós-operatória de colecistectomia realizada em 2025.",
-    observations: [
-      "Cicatrização descrita como adequada no registro original",
-      "Sem queixas digestivas anotadas na evolução",
-      "Alta do acompanhamento cirúrgico",
+    data: [
+      { date: "12 jul", sistolica: 150, diastolica: 90 },
+      { date: "18 ago", sistolica: 145, diastolica: 95 },
+      { date: "22 set", sistolica: 160, diastolica: 100 },
     ],
-    documents: ["Descrição cirúrgica", "Relatório de alta"],
   },
-] as const;
+  exams: {
+    columns: ["2024 · Fleury", "2025 · Lavoisier", "2026 · SUS"],
+    rows: [
+      { metric: "Glicose de jejum", values: ["94 mg/dL", "102 mg/dL", "118 mg/dL"], status: "high" },
+      { metric: "Colesterol total", values: ["180 mg/dL", "195 mg/dL", "220 mg/dL"], status: "attention" },
+    ],
+  },
+  timeline: [
+    { date: "Hoje · 22/09/2026", title: "Entrada atual em triagem", detail: "Relato recebido e aguardando validação médica.", active: true },
+    { date: "18/08/2026", title: "Consulta · Dr. Marcos Silva", detail: "Pressão arterial: 145 × 95 mmHg", locked: true },
+    {
+      date: "12/07/2026",
+      title: "Pronto atendimento",
+      detail: "Pressão arterial: 150 × 90 mmHg",
+      locked: true,
+      addendum: { date: "Adendo · 13/07/2026, 08:15", text: "Horário de aferição corrigido para 21:40. Registro original preservado." },
+    },
+  ],
+  consultations: [
+    {
+      date: "18/08/2026",
+      doctor: "Dr. Marcos Silva",
+      specialty: "Clínica Médica",
+      unit: "Clínica Vitae · Unidade Centro",
+      summary: "Retorno para acompanhamento pressórico. Paciente relatou cansaço ao final do dia.",
+      observations: [
+        "Pressão aferida em consultório: 145 × 95 mmHg",
+        "Orientação sobre redução de sódio registrada em texto livre",
+        "Solicitado perfil lipídico e glicemia de jejum",
+      ],
+      documents: ["Evolução assinada (PDF)", "Pedido de exames"],
+    },
+    {
+      date: "12/07/2026",
+      doctor: "Dra. Helena Prado",
+      specialty: "Pronto Atendimento",
+      unit: "Hospital São Rafael",
+      summary: "Atendimento por cefaleia e mal-estar. Registro de aferição pressórica alterada.",
+      observations: [
+        "Pressão aferida na admissão: 150 × 90 mmHg",
+        "Relato de uso ocasional de analgésico sem orientação",
+        "Alta com orientação de seguimento ambulatorial",
+      ],
+      documents: ["Ficha de atendimento digitalizada", "Adendo de correção de horário"],
+    },
+    {
+      date: "03/03/2025",
+      doctor: "Dr. Ricardo Alves",
+      specialty: "Cirurgia Geral",
+      unit: "Hospital São Rafael",
+      summary: "Consulta de revisão pós-operatória de colecistectomia realizada em 2025.",
+      observations: [
+        "Cicatrização descrita como adequada no registro original",
+        "Sem queixas digestivas anotadas na evolução",
+        "Alta do acompanhamento cirúrgico",
+      ],
+      documents: ["Descrição cirúrgica", "Relatório de alta"],
+    },
+  ],
+};
+
+// ---------- Cenário 2: Oftalmologia ----------
+
+const oftalmoScenario: Scenario = {
+  id: "oftalmo",
+  label: "Oftalmologia",
+  icon: Eye,
+  patient: {
+    name: "Marina Costa Lima",
+    initials: "ML",
+    age: "62 anos",
+    cpf: "***.321.654-**",
+    record: "#P-031507",
+  },
+  badges: [
+    { tone: "alert", icon: AlertTriangle, text: "Diabetes tipo 2 em acompanhamento" },
+    { tone: "attention", icon: Eye, text: "Pressão intraocular elevada" },
+  ],
+  doctorBadge: "Dra. Paula Nogueira · CRM/SP 145.678",
+  statusLine: "Atendimento oftalmológico em andamento",
+  statusTime: "Atualização segura · Hoje, 10:15",
+  rawReport:
+    "Doutora, de uns dois meses pra cá minha visão tá ficando embaçada, principalmente à noite, e vejo uns halos em volta das luzes. Uso o colírio de lágrima artificial que comprei na farmácia, mas não melhora. Meu irmão mais velho tem glaucoma. Na última medição aí mesmo na clínica deu 26 no olho direito e 24 no esquerdo. Também sou diabética e a glicemia anda descontrolada.",
+  entityGroups: [
+    { label: "Sintomas", tone: "symptom", items: ["Visão embaçada noturna", "Halos ao redor de luzes"] },
+    { label: "Tempo de evolução", tone: "time", items: ["Há 2 meses"] },
+    { label: "Medicamentos citados", tone: "medication", items: ["Lágrima artificial (sem eficácia)"] },
+    { label: "Histórico familiar citado", tone: "history", items: ["Glaucoma (irmão)", "Diabetes tipo 2 (paciente)"] },
+  ] as const,
+  synthesis:
+    "Paciente relata turvação visual progressiva, predominante no período noturno, com início há dois meses, associada a percepção de halos ao redor de fontes luminosas. Refere uso de colírio lubrificante de automedicação, sem melhora. Tonometria realizada na clínica nesta data: 26 mmHg no olho direito e 24 mmHg no olho esquerdo. Antecedentes informados: diabetes mellitus tipo 2 com controle glicêmico irregular e histórico familiar de glaucoma em familiar de primeiro grau.",
+  chart: {
+    title: "Tendência da pressão intraocular",
+    eyebrow: "Série temporal",
+    lastLabel: "Última tonometria",
+    lastValue: "26 / 24",
+    lastUnit: "mmHg",
+    badge: "26 / 24",
+    trend: "Tendência ascendente",
+    ariaLabel: "Gráfico de pressão intraocular nas últimas três consultas",
+    yDomain: [10, 30],
+    series: [
+      { key: "od", name: "Olho direito (OD)", colorVar: "var(--chart-systolic)" },
+      { key: "oe", name: "Olho esquerdo (OE)", colorVar: "var(--chart-diastolic)" },
+    ],
+    data: [
+      { date: "10 mar", od: 18, oe: 17 },
+      { date: "22 jun", od: 22, oe: 20 },
+      { date: "24 set", od: 26, oe: 24 },
+    ],
+  },
+  exams: {
+    columns: ["2024 · Hosp. Olhos", "2025 · Clínica Visão", "2026 · Clínica Visão"],
+    rows: [
+      { metric: "Pressão intraocular OD", values: ["18 mmHg", "22 mmHg", "26 mmHg"], status: "high" },
+      { metric: "Pressão intraocular OE", values: ["17 mmHg", "20 mmHg", "24 mmHg"], status: "high" },
+      { metric: "Acuidade visual OD", values: ["20/25", "20/30", "20/40"], status: "attention" },
+      { metric: "Acuidade visual OE", values: ["20/25", "20/30", "20/35"], status: "attention" },
+      { metric: "Hemoglobina glicada", values: ["6,8 %", "7,4 %", "8,1 %"], status: "high" },
+    ],
+  },
+  timeline: [
+    { date: "Hoje · 24/09/2026", title: "Entrada atual em triagem", detail: "Relato recebido e aguardando validação médica.", active: true },
+    { date: "22/06/2026", title: "Consulta · Dra. Paula Nogueira", detail: "Pressão intraocular: OD 22 mmHg · OE 20 mmHg", locked: true },
+    {
+      date: "10/03/2026",
+      title: "Consulta · Dr. Fernando Reis",
+      detail: "Pressão intraocular: OD 18 mmHg · OE 17 mmHg",
+      locked: true,
+      addendum: { date: "Adendo · 11/03/2026, 14:30", text: "Acuidade visual corrigida para 20/25 em ambos os olhos. Registro original preservado." },
+    },
+  ],
+  consultations: [
+    {
+      date: "22/06/2026",
+      doctor: "Dra. Paula Nogueira",
+      specialty: "Oftalmologia",
+      unit: "Clínica Visão · Unidade Jardins",
+      summary: "Retorno para acompanhamento de pressão intraocular. Paciente relatou dificuldade para leitura noturna.",
+      observations: [
+        "Tonometria de aplanação: OD 22 mmHg · OE 20 mmHg",
+        "Campimetria visual computadorizada anexada ao registro",
+        "Solicitada retinografia colorida e paquimetria ultrassônica",
+      ],
+      documents: ["Evolução assinada (PDF)", "Campimetria visual", "Pedido de OCT de papila"],
+    },
+    {
+      date: "10/03/2026",
+      doctor: "Dr. Fernando Reis",
+      specialty: "Oftalmologia",
+      unit: "Hospital dos Olhos",
+      summary: "Primeira avaliação por turvação visual. Registro de tonometria limítrofe e fundoscopia documentada.",
+      observations: [
+        "Tonometria: OD 18 mmHg · OE 17 mmHg",
+        "Fundoscopia: escavação de disco óptico anotada para reavaliação",
+        "Orientado retorno semestral com exame de campo visual",
+      ],
+      documents: ["Ficha de atendimento digitalizada", "Retinografia simples", "Adendo de correção de acuidade"],
+    },
+    {
+      date: "05/11/2024",
+      doctor: "Dra. Camila Ferraz",
+      specialty: "Endocrinologia",
+      unit: "Clínica Vitae · Unidade Centro",
+      summary: "Consulta de acompanhamento de diabetes tipo 2. Registro de controle glicêmico irregular.",
+      observations: [
+        "Hemoglobina glicada registrada: 7,4 %",
+        "Orientação sobre rastreamento oftalmológico anual anotada no registro",
+        "Solicitado exame de fundo de olho com dilatação",
+      ],
+      documents: ["Evolução assinada (PDF)", "Pedido de fundoscopia"],
+    },
+  ],
+};
+
+const scenarios = [clinicoScenario, oftalmoScenario] as const;
+
+// ---------- Rota ----------
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -130,10 +356,22 @@ function SectionTitle({ icon: Icon, title, eyebrow }: { icon: typeof Activity; t
 }
 
 function ClinicalDashboard() {
+  const [scenarioId, setScenarioId] = useState<Scenario["id"]>("clinico");
+  const scenario = scenarios.find((s) => s.id === scenarioId) ?? clinicoScenario;
+
   const [report, setReport] = useState("");
   const [processed, setProcessed] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [updateKey, setUpdateKey] = useState(0);
+
+  const switchScenario = (id: Scenario["id"]) => {
+    if (id === scenarioId) return;
+    setScenarioId(id);
+    setReport("");
+    setProcessed(false);
+    setProcessing(false);
+    setUpdateKey(0);
+  };
 
   const simulate = () => {
     setReport("");
@@ -141,8 +379,8 @@ function ClinicalDashboard() {
     let cursor = 0;
     const interval = window.setInterval(() => {
       cursor += 5;
-      setReport(rawReport.slice(0, cursor));
-      if (cursor >= rawReport.length) window.clearInterval(interval);
+      setReport(scenario.rawReport.slice(0, cursor));
+      if (cursor >= scenario.rawReport.length) window.clearInterval(interval);
     }, 14);
   };
 
@@ -157,40 +395,73 @@ function ClinicalDashboard() {
     }, 850);
   };
 
+  const { patient, chart } = scenario;
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border bg-card">
         <div className="mx-auto max-w-[1720px] px-4 py-4 sm:px-6 xl:px-8">
+          {/* Seletor de cenário demonstrativo */}
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-bold uppercase text-muted-foreground">Caso demonstrativo:</span>
+            <div className="flex gap-1 rounded-md border border-border bg-surface-subtle p-1" role="tablist" aria-label="Selecionar caso demonstrativo">
+              {scenarios.map((s) => {
+                const Icon = s.icon;
+                const active = s.id === scenarioId;
+                return (
+                  <button
+                    key={s.id}
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => switchScenario(s.id)}
+                    className={cn(
+                      "flex h-8 items-center gap-1.5 rounded px-3 text-xs font-semibold transition-colors",
+                      active ? "bg-card text-primary shadow-sm" : "text-muted-foreground hover:text-heading"
+                    )}
+                  >
+                    <Icon size={14} /> {s.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex min-w-0 items-center gap-4">
               <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-                <span className="text-lg font-bold">CS</span>
+                <span className="text-lg font-bold">{patient.initials}</span>
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <h1 className="truncate text-xl font-bold text-heading">Carlos Eduardo Souza</h1>
-                  <span className="rounded bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">48 anos</span>
+                  <h1 className="truncate text-xl font-bold text-heading">{patient.name}</h1>
+                  <span className="rounded bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">{patient.age}</span>
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                  <span>CPF: ***.456.789-**</span>
+                  <span>CPF: {patient.cpf}</span>
                   <span className="hidden h-3 w-px bg-border sm:block" />
-                  <span>Prontuário #P-029841</span>
+                  <span>Prontuário {patient.record}</span>
                 </div>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className="h-8 gap-1.5 border-alert-border bg-alert-soft text-alert-foreground shadow-none hover:bg-alert-soft">
-                <AlertTriangle size={14} /> Alergia severa a penicilina
-              </Badge>
-              <Badge className="h-8 gap-1.5 border-attention-border bg-attention-soft text-attention-foreground shadow-none hover:bg-attention-soft">
-                <Activity size={14} /> Hipertensão em investigação
-              </Badge>
+              {scenario.badges.map((badge) => {
+                const Icon = badge.icon;
+                return badge.tone === "alert" ? (
+                  <Badge key={badge.text} className="h-8 gap-1.5 border-alert-border bg-alert-soft text-alert-foreground shadow-none hover:bg-alert-soft">
+                    <Icon size={14} /> {badge.text}
+                  </Badge>
+                ) : (
+                  <Badge key={badge.text} className="h-8 gap-1.5 border-attention-border bg-attention-soft text-attention-foreground shadow-none hover:bg-attention-soft">
+                    <Icon size={14} /> {badge.text}
+                  </Badge>
+                );
+              })}
               <Badge variant="outline" className="h-8 gap-1.5 bg-card text-muted-foreground">
                 <ShieldCheck size={14} className="text-success" /> Acesso auditado (LGPD)
               </Badge>
               <Badge variant="outline" className="h-8 gap-1.5 bg-card text-heading">
-                <Stethoscope size={14} className="text-primary" /> Dr. Marcos Silva · CRM/SP 198.432
+                <Stethoscope size={14} className="text-primary" /> {scenario.doctorBadge}
               </Badge>
             </div>
           </div>
@@ -200,11 +471,11 @@ function ClinicalDashboard() {
       <div className="border-b border-border bg-surface-subtle">
         <div className="mx-auto flex max-w-[1720px] items-center justify-between px-4 py-2.5 text-xs sm:px-6 xl:px-8">
           <div className="flex items-center gap-2 font-semibold text-primary">
-            <HeartPulse size={16} /> Atendimento em andamento
+            <scenario.icon size={16} /> {scenario.statusLine}
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
             <span className="relative flex size-2"><span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-50" /><span className="relative inline-flex size-2 rounded-full bg-success" /></span>
-            Atualização segura · Hoje, 09:42
+            {scenario.statusTime}
           </div>
         </div>
       </div>
@@ -268,9 +539,9 @@ function ClinicalDashboard() {
                   <p className="mt-1 max-w-xs text-xs leading-relaxed text-muted-foreground">Simule ou digite um relato e processe para visualizar os dados organizados.</p>
                 </div>
               ) : (
-                <div key={updateKey} className="animate-data-in space-y-5">
+                <div key={`${scenarioId}-${updateKey}`} className="animate-data-in space-y-5">
                   <div className="grid gap-4 sm:grid-cols-2">
-                    {entityGroups.map((group) => (
+                    {scenario.entityGroups.map((group) => (
                       <div key={group.label}>
                         <p className="mb-2 text-[10px] font-bold uppercase text-muted-foreground">{group.label}</p>
                         <div className="flex flex-wrap gap-2">
@@ -281,7 +552,7 @@ function ClinicalDashboard() {
                   </div>
                   <div className="rounded-md border border-border bg-surface-subtle p-4">
                     <div className="mb-2 flex items-center gap-2 text-xs font-bold text-heading"><FileText size={15} className="text-primary" /> Síntese técnica do relato</div>
-                    <p className="text-sm leading-6 text-foreground">Paciente relata cefaleia occipital intensa e pulsátil, com início há três dias. Refere uso de Neosaldina na noite anterior, sem alívio. Pressão arterial aferida em farmácia nesta manhã: 160/100 mmHg. Antecedente cirúrgico informado: colecistectomia em 2025.</p>
+                    <p className="text-sm leading-6 text-foreground">{scenario.synthesis}</p>
                   </div>
                 </div>
               )}
@@ -294,14 +565,23 @@ function ClinicalDashboard() {
             </CardHeader>
             <CardContent className="p-5">
               <div className="relative ml-2 border-l border-timeline pl-6">
-                <TimelineEntry date="Hoje · 22/09/2026" title="Entrada atual em triagem" detail="Relato recebido e aguardando validação médica." active />
-                <TimelineEntry date="18/08/2026" title="Consulta · Dr. Marcos Silva" detail="Pressão arterial: 145 × 95 mmHg" locked />
-                <TimelineEntry date="12/07/2026" title="Pronto atendimento" detail="Pressão arterial: 150 × 90 mmHg" locked>
-                  <div className="mt-3 border-l-2 border-attention-border bg-attention-soft px-3 py-2.5">
-                    <p className="text-[10px] font-bold uppercase text-attention-foreground">Adendo · 13/07/2026, 08:15</p>
-                    <p className="mt-1 text-xs text-foreground">Horário de aferição corrigido para 21:40. Registro original preservado.</p>
-                  </div>
-                </TimelineEntry>
+                {scenario.timeline.map((entry) => (
+                  <TimelineEntry
+                    key={entry.date}
+                    date={entry.date}
+                    title={entry.title}
+                    detail={entry.detail}
+                    active={entry.active}
+                    locked={entry.locked}
+                  >
+                    {entry.addendum && (
+                      <div className="mt-3 border-l-2 border-attention-border bg-attention-soft px-3 py-2.5">
+                        <p className="text-[10px] font-bold uppercase text-attention-foreground">{entry.addendum.date}</p>
+                        <p className="mt-1 text-xs text-foreground">{entry.addendum.text}</p>
+                      </div>
+                    )}
+                  </TimelineEntry>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -310,24 +590,34 @@ function ClinicalDashboard() {
         <section className="min-w-0 space-y-5">
           <Card className={cn("border-border shadow-clinical", processed && "animate-data-pulse")}>
             <CardHeader className="flex-row items-center justify-between border-b border-border p-5">
-              <SectionTitle icon={TrendingUp} eyebrow="Série temporal" title="Tendência da pressão arterial" />
-              <Badge className="border-alert-border bg-alert-soft text-alert-foreground shadow-none hover:bg-alert-soft">160 / 100</Badge>
+              <SectionTitle icon={TrendingUp} eyebrow={chart.eyebrow} title={chart.title} />
+              <Badge className="border-alert-border bg-alert-soft text-alert-foreground shadow-none hover:bg-alert-soft">{chart.badge}</Badge>
             </CardHeader>
             <CardContent className="p-5">
               <div className="mb-3 flex items-end justify-between">
-                <div><p className="text-[10px] font-bold uppercase text-muted-foreground">Última aferição</p><p className="mt-0.5 text-2xl font-bold text-heading">160/100 <span className="text-xs font-medium text-muted-foreground">mmHg</span></p></div>
-                <span className="flex items-center gap-1 text-xs font-semibold text-alert-foreground"><TrendingUp size={14} /> Tendência ascendente</span>
+                <div><p className="text-[10px] font-bold uppercase text-muted-foreground">{chart.lastLabel}</p><p className="mt-0.5 text-2xl font-bold text-heading">{chart.lastValue} <span className="text-xs font-medium text-muted-foreground">{chart.lastUnit}</span></p></div>
+                <span className="flex items-center gap-1 text-xs font-semibold text-alert-foreground"><TrendingUp size={14} /> {chart.trend}</span>
               </div>
-              <div className="h-52 w-full" aria-label="Gráfico de pressão arterial nas últimas três consultas">
+              <div className="h-52 w-full" aria-label={chart.ariaLabel}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={pressureData} margin={{ top: 8, right: 6, left: -24, bottom: 0 }}>
+                  <LineChart data={chart.data} margin={{ top: 8, right: 6, left: -24, bottom: 0 }}>
                     <CartesianGrid stroke="var(--chart-grid)" vertical={false} strokeDasharray="3 3" />
                     <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: "var(--chart-label)", fontSize: 11 }} />
-                    <YAxis domain={[80, 170]} axisLine={false} tickLine={false} tick={{ fill: "var(--chart-label)", fontSize: 11 }} />
+                    <YAxis domain={chart.yDomain} axisLine={false} tickLine={false} tick={{ fill: "var(--chart-label)", fontSize: 11 }} />
                     <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 12 }} />
                     <Legend wrapperStyle={{ fontSize: 11, paddingTop: 10 }} />
-                    <Line name="Sistólica" type="monotone" dataKey="sistolica" stroke="var(--chart-systolic)" strokeWidth={2.5} dot={{ r: 4, fill: "var(--card)", strokeWidth: 2 }} activeDot={{ r: 5 }} />
-                    <Line name="Diastólica" type="monotone" dataKey="diastolica" stroke="var(--chart-diastolic)" strokeWidth={2.5} dot={{ r: 4, fill: "var(--card)", strokeWidth: 2 }} activeDot={{ r: 5 }} />
+                    {chart.series.map((s) => (
+                      <Line
+                        key={s.key}
+                        name={s.name}
+                        type="monotone"
+                        dataKey={s.key}
+                        stroke={s.colorVar}
+                        strokeWidth={2.5}
+                        dot={{ r: 4, fill: "var(--card)", strokeWidth: 2 }}
+                        activeDot={{ r: 5 }}
+                      />
+                    ))}
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -342,11 +632,26 @@ function ClinicalDashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[560px] text-left text-xs">
                   <thead className="bg-surface-subtle text-[10px] uppercase text-muted-foreground">
-                    <tr><th className="px-5 py-3">Métrica</th><th className="px-3 py-3">2024 · Fleury</th><th className="px-3 py-3">2025 · Lavoisier</th><th className="px-3 py-3">2026 · SUS</th><th className="px-3 py-3">Status</th></tr>
+                    <tr>
+                      <th className="px-5 py-3">Métrica</th>
+                      {scenario.exams.columns.map((col) => <th key={col} className="px-3 py-3">{col}</th>)}
+                      <th className="px-3 py-3">Status</th>
+                    </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    <tr><td className="px-5 py-4 font-semibold text-heading">Glicose de jejum</td><td className="px-3 py-4">94 mg/dL</td><td className="px-3 py-4">102 mg/dL</td><td className="px-3 py-4 font-bold text-alert-foreground">118 mg/dL</td><td className="px-3 py-4"><span className="status-high">Alta</span></td></tr>
-                    <tr><td className="px-5 py-4 font-semibold text-heading">Colesterol total</td><td className="px-3 py-4">180 mg/dL</td><td className="px-3 py-4">195 mg/dL</td><td className="px-3 py-4 font-bold text-attention-foreground">220 mg/dL</td><td className="px-3 py-4"><span className="status-attention">Atenção</span></td></tr>
+                    {scenario.exams.rows.map((row) => (
+                      <tr key={row.metric}>
+                        <td className="px-5 py-4 font-semibold text-heading">{row.metric}</td>
+                        {row.values.map((value, i) => (
+                          <td key={i} className={cn("px-3 py-4", i === row.values.length - 1 && "font-bold", i === row.values.length - 1 && row.status === "high" && "text-alert-foreground", i === row.values.length - 1 && row.status === "attention" && "text-attention-foreground")}>
+                            {value}
+                          </td>
+                        ))}
+                        <td className="px-3 py-4">
+                          {row.status === "high" ? <span className="status-high">Alta</span> : row.status === "attention" ? <span className="status-attention">Atenção</span> : <span className="text-muted-foreground">—</span>}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -361,7 +666,7 @@ function ClinicalDashboard() {
               <SectionTitle icon={Stethoscope} eyebrow="Atendimentos anteriores" title="Consultas com outros profissionais" />
             </CardHeader>
             <CardContent className="divide-y divide-border p-0">
-              {previousConsultations.map((consult) => (
+              {scenario.consultations.map((consult) => (
                 <PreviousConsultation key={consult.date} consult={consult} />
               ))}
             </CardContent>
@@ -372,7 +677,7 @@ function ClinicalDashboard() {
   );
 }
 
-function TimelineEntry({ date, title, detail, active, locked, children }: { date: string; title: string; detail: string; active?: boolean; locked?: boolean; children?: React.ReactNode }) {
+function TimelineEntry({ date, title, detail, active, locked, children }: { date: string; title: string; detail: string; active?: boolean | undefined; locked?: boolean | undefined; children?: React.ReactNode }) {
   return (
     <div className="relative pb-6 last:pb-0">
       <span className={cn("absolute -left-[31px] top-1 flex size-3 rounded-full border-2 border-card", active ? "bg-primary ring-4 ring-primary-soft" : "bg-timeline")} />
@@ -386,7 +691,8 @@ function TimelineEntry({ date, title, detail, active, locked, children }: { date
     </div>
   );
 }
-function PreviousConsultation({ consult }: { consult: (typeof previousConsultations)[number] }) {
+
+function PreviousConsultation({ consult }: { consult: Consultation }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="p-5">
